@@ -280,7 +280,7 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
                             contract,
                             to: account.address,
                             tokenId: BigInt(event.ticket_token_id),
-                            quantity: 1n,
+                            quantity: BigInt(1),
                           });
                         }}
                         payModal={{
