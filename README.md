@@ -1,36 +1,124 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# I & E Hub - Web3 Event Ticketing & NFT Certificate dApp
+
+A modern Web3 application for event ticketing and NFT certificates built with Next.js, Thirdweb SDK v5, and Tailwind CSS.
+
+## Features
+
+- 🎫 NFT-based event tickets on Sepolia testnet
+- 🏆 Digital certificates as NFTs
+- ⚡ Instant ticket transfers
+- 🎨 Modern glassmorphism UI with dark mode
+- 🔐 Secure wallet connection with Thirdweb
+- ✨ Smooth animations with Framer Motion
+
+## Tech Stack
+
+- **Framework**: Next.js 16 (App Router)
+- **Styling**: Tailwind CSS 4
+- **Web3**: Thirdweb SDK v5
+- **Animations**: Framer Motion
+- **Icons**: Lucide React
+- **Blockchain**: Sepolia Testnet
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
+- Node.js 18+ installed
+- A Thirdweb account and client ID
+
+### Installation
+
+1. Clone the repository
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <your-repo-url>
+cd i-and-e-hub
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Install dependencies
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Set up environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create a `.env.local` file in the root directory:
 
-## Learn More
+```env
+NEXT_PUBLIC_THIRDWEB_CLIENT_ID=your-client-id-here
+```
 
-To learn more about Next.js, take a look at the following resources:
+To get your Thirdweb client ID:
+- Go to [Thirdweb Dashboard](https://thirdweb.com/dashboard)
+- Create a new project or use an existing one
+- Copy your client ID
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+4. Run the development server
+```bash
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-## Deploy on Vercel
+## Project Structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+i-and-e-hub/
+├── app/
+│   ├── layout.tsx          # Root layout with ThirdwebProvider
+│   ├── page.tsx            # Home page with Hero
+│   ├── profile/            # Profile page
+│   ├── admin/              # Admin dashboard
+│   └── globals.css         # Global styles
+├── components/
+│   ├── Navbar.tsx          # Navigation with ConnectButton
+│   └── Hero.tsx            # Animated hero section
+├── lib/
+│   └── thirdweb.ts         # Thirdweb client configuration
+└── public/                 # Static assets
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Configuration
+
+### Thirdweb Setup
+
+The app is configured to use Sepolia testnet. You can change the chain in `lib/thirdweb.ts`:
+
+```typescript
+import { sepolia } from "thirdweb/chains";
+
+export const chain = sepolia; // Change to your preferred chain
+```
+
+### Styling
+
+The app uses a custom glassmorphism design with:
+- Deep purples and blues
+- Neon cyan accents
+- Blur effects and gradients
+- Smooth hover animations
+
+Customize colors in `app/globals.css`.
+
+## Building for Production
+
+```bash
+npm run build
+npm start
+```
+
+## Deployment
+
+Deploy easily with Vercel:
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=<your-repo-url>)
+
+Don't forget to add your environment variables in the Vercel dashboard!
+
+## License
+
+MIT
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.

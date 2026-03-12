@@ -1,0 +1,88 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Admin table for dashboard authentication
+model tb_admin {
+  id         Int      @id @default(autoincrement())
+  username   String   @unique
+  password   String   // Hashed password
+  created_at DateTime @default(now())
+
+  @@map("tb_admin")
+}
+
+// User table for attendees/participants
+model tb_user {
+  wallet_address String                @id @unique
+  full_name      String
+  email          String                @unique
+  created_at     DateTime              @default(now())
+  
+  // Relations
+  certificates      tb_sertifikat[]
+  ticketTransactions tb_transaksi_tiket[]
+
+  @@map("tb_user")
+}
+
+// Event table for all events
+model tb_event {
+  id          String                @id @default(uuid())
+  title       String
+  description String                @db.Text
+  event_date  DateTime
+  price_pol   Float
+  quota       Int
+  banner_url  String
+  tx_hash          String?               @unique
+  token_id         BigInt?
+  ticket_token_id  Int?
+  max_per_wallet   Int?
+  is_active        Boolean               @default(true)
+  created_at       DateTime              @default(now())
+  
+  // Relations
+  certificates       tb_sertifikat[]
+  ticketTransactions tb_transaksi_tiket[]
+
+  @@map("tb_event")
+}
+
+// Certificate table for NFT certificates
+model tb_sertifikat {
+  id             String   @id @default(uuid())
+  event_id       String
+  wallet_address String
+  tx_hash        String   @unique
+  minted_at      DateTime @default(now())
+  
+  // Relations
+  event          tb_event @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  user           tb_user  @relation(fields: [wallet_address], references: [wallet_address], onDelete: Cascade)
+
+  @@map("tb_sertifikat")
+}
+
+// Ticket transaction table for ticket purchases
+model tb_transaksi_tiket {
+  id             String   @id @default(uuid())
+  event_id       String
+  wallet_address String
+  amount_pol     Float
+  tx_hash        String   @unique
+  created_at     DateTime @default(now())
+  
+  // Relations
+  event          tb_event @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  user           tb_user  @relation(fields: [wallet_address], references: [wallet_address], onDelete: Cascade)
+
+  @@map("tb_transaksi_tiket")
+}
