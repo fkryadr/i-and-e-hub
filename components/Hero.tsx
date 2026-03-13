@@ -28,7 +28,7 @@ export default function Hero() {
     },
   };
 
-  const floatingVariants = {
+  const floatingVariants: Variants = {
     initial: { y: 0 },
     animate: {
       y: [-10, 10, -10],
