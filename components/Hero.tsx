@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
 import { Ticket, Award } from "lucide-react";
 import { motion, Variants } from "framer-motion";
 
