@@ -36,7 +36,7 @@ export default function EventCard({
         viewport={{ once: true }}
         transition={{ duration: 0.5 }}
         whileHover={{ scale: 1.05, y: -8 }}
-        className="group relative glass rounded-2xl overflow-hidden cursor-pointer"
+        className="group relative w-full max-w-full glass rounded-2xl overflow-hidden cursor-pointer"
       >
         {/* Glowing border effect on hover */}
         <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">

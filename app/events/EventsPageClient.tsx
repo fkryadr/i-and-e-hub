@@ -51,7 +51,7 @@ export default function EventsPageClient({ events }: EventsPageClientProps) {
   };
 
   return (
-    <div className="min-h-screen pt-32 pb-20 px-6">
+    <div className="min-h-screen pt-32 pb-20 px-4 sm:px-6">
       {/* Background decoration */}
       <div className="absolute top-20 left-1/4 w-96 h-96 bg-[#8247E5]/10 rounded-full blur-3xl" />
       <div className="absolute bottom-20 right-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl" />
@@ -71,7 +71,7 @@ export default function EventsPageClient({ events }: EventsPageClientProps) {
             </span>
           </div>
 
-          <h1 className="text-5xl md:text-6xl font-bold mb-4">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4">
             <span className="bg-gradient-to-r from-[#8247E5] via-purple-400 to-cyan-400 bg-clip-text text-transparent">
               Discover Web3 Events
             </span>
@@ -88,7 +88,7 @@ export default function EventsPageClient({ events }: EventsPageClientProps) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="flex flex-wrap items-center justify-center gap-3 mb-12"
+          className="flex overflow-x-auto sm:overflow-x-visible sm:flex-wrap items-center sm:justify-center gap-3 mb-12 pb-2 sm:pb-0 hide-scrollbar"
         >
           {categories.map((category) => {
             const Icon = category.icon;
@@ -97,7 +97,7 @@ export default function EventsPageClient({ events }: EventsPageClientProps) {
               <Button
                 key={category.id}
                 onClick={() => setSelectedCategory(category.id)}
-                className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                className={`flex-shrink-0 px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
                   isActive
                     ? "bg-gradient-to-r from-[#8247E5] to-purple-600 text-white shadow-lg shadow-[#8247E5]/30"
                     : "glass border border-purple-500/30 text-gray-300 hover:border-[#8247E5]/50 hover:bg-[#8247E5]/10"
