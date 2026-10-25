@@ -4,10 +4,10 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { TransactionButton, useActiveAccount, useReadContract } from "thirdweb/react";
+import { TransactionButton, useActiveAccount, useReadContract, useSendAndConfirmTransaction } from "thirdweb/react";
 import { getContract } from "thirdweb";
 import { upload } from "thirdweb/storage";
-import { lazyMint, nextTokenIdToMint } from "thirdweb/extensions/erc1155";
+import { lazyMint, nextTokenIdToMint, setClaimConditions } from "thirdweb/extensions/erc1155";
 import { client, chain } from "@/lib/thirdweb";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -55,6 +55,8 @@ export default function EventsPage() {
   const [isFetchingEvents, setIsFetchingEvents] = useState(true);
   const [isUploadingToIPFS, setIsUploadingToIPFS] = useState(false);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [isSettingClaimCondition, setIsSettingClaimCondition] = useState(false);
+  const [syncingClaimEventId, setSyncingClaimEventId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -85,6 +87,9 @@ export default function EventsPage() {
   );
 
   const contract = getContract({ client, chain, address: CONTRACT_ADDRESS });
+
+  // React hook for sending transactions — properly handles browser wallet popups
+  const { mutateAsync: sendTxAsync } = useSendAndConfirmTransaction();
 
   // ── Pre-fetch the next token ID from the chain
   // useReadContract 2-arg form: (extensionFn, { contract }) — thirdweb v5 pattern
@@ -160,6 +165,7 @@ export default function EventsPage() {
     setEditingEventId(null);
     setIsLoading(false);
     setIsUploadingToIPFS(false);
+    setIsSettingClaimCondition(false);
   };
 
   const handleSheetOpenChange = (open: boolean) => {
@@ -234,7 +240,10 @@ export default function EventsPage() {
   const handleDelete = async (event: Event) => {
     if (!window.confirm(`Delete "${event.title}"?`)) return;
     try {
-      const res = await fetch(`/api/events/${event.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/events/${event.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to delete event");
       toast.success(data.note ? "Event Deactivated" : "Event Deleted", {
@@ -245,6 +254,57 @@ export default function EventsPage() {
       toast.error("Failed to delete event", {
         description: err instanceof Error ? err.message : "Please try again.",
       });
+    }
+  };
+
+  // ── Manual / Sync Claim Condition for any event ──────────────────────────────
+  const handleSetClaimConditionForEvent = async (event: Event) => {
+    if (event.ticket_token_id === null || event.ticket_token_id === undefined) {
+      toast.error("Event ini tidak memiliki Token ID NFT di blockchain");
+      return;
+    }
+    if (!account) {
+      toast.error("Hubungkan wallet admin terlebih dahulu!");
+      return;
+    }
+
+    setSyncingClaimEventId(event.id);
+    const toastId = `sync-claim-${event.id}`;
+    toast.loading(`Mengatur Claim Condition untuk "${event.title}"...`, {
+      id: toastId,
+      description: "Silakan konfirmasi transaksi di wallet Anda...",
+    });
+
+    try {
+      const claimTx = setClaimConditions({
+        contract,
+        tokenId: BigInt(event.ticket_token_id),
+        phases: [
+          {
+            startTime: new Date(),
+            price: event.priceInPOL,
+            maxClaimableSupply: BigInt(event.totalQuota || event.quota),
+            maxClaimablePerWallet: event.max_per_wallet
+              ? BigInt(event.max_per_wallet)
+              : undefined,
+          },
+        ],
+      });
+
+      await sendTxAsync(claimTx);
+
+      toast.success("🎉 Claim Condition Berhasil Diset!", {
+        id: toastId,
+        description: `Tiket "${event.title}" (Token #${event.ticket_token_id}) sekarang siap dibeli oleh publik!`,
+      });
+    } catch (err: any) {
+      console.error("Manual claim condition error:", err);
+      toast.error("Gagal mengatur claim condition", {
+        id: toastId,
+        description: err?.message || "Transaksi dibatalkan atau gagal.",
+      });
+    } finally {
+      setSyncingClaimEventId(null);
     }
   };
 
@@ -261,6 +321,9 @@ export default function EventsPage() {
     const liveForm = formDataRef.current;
     const liveBanner = pendingBannerUriRef.current;
 
+    // ── STEP 1: Simpan ke database TERLEBIH DAHULU ──
+    // Ini memastikan event selalu masuk database walaupun claim condition nanti gagal.
+    let dbSaveSuccess = false;
     try {
       const payload = {
         title: liveForm.title.trim(),
@@ -280,15 +343,21 @@ export default function EventsPage() {
 
       const res = await fetch("/api/events", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(account?.address ? { "x-admin-wallet": account.address } : {}),
+        },
+        credentials: "include",
         body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.details || data.error || "Save failed");
 
       console.log("✓ Saved event ID:", data.event._id);
-      toast.success("🎉 Event Published!", {
-        description: `${liveForm.title} is now live. Set claim conditions via the Thirdweb Dashboard.`,
+      dbSaveSuccess = true;
+
+      toast.success("✓ Event Tersimpan di Database!", {
+        description: "Melanjutkan pengaturan Claim Condition di smart contract...",
       });
 
       setIsSheetOpen(false);
@@ -297,11 +366,57 @@ export default function EventsPage() {
       router.refresh();
     } catch (err) {
       console.error("DB save error:", err);
-      toast.error("NFT minted but database save failed", {
-        description: err instanceof Error ? err.message : "Check console.",
+      toast.error("NFT minted tapi gagal menyimpan ke database", {
+        description: err instanceof Error ? err.message : "Cek console.",
       });
-    } finally {
       setIsLoading(false);
+      return; // Stop — no point setting claim condition if DB save failed
+    }
+
+    setIsLoading(false);
+
+    // ── STEP 2: Otomatis set claim conditions di smart contract ──
+    // Event sudah aman di database. Langkah ini adalah bonus agar tiket langsung bisa dibeli.
+    if (dbSaveSuccess && account) {
+      setIsSettingClaimCondition(true);
+      const claimToastId = "claim-condition-step";
+      toast.loading("Mengatur Claim Condition (harga & kuota) di smart contract...", {
+        id: claimToastId,
+        description: "Harap konfirmasi transaksi kedua di wallet Anda agar tiket langsung bisa dibeli publik.",
+      });
+
+      try {
+        const claimTx = setClaimConditions({
+          contract,
+          tokenId: BigInt(tokenId),
+          phases: [
+            {
+              startTime: new Date(),
+              price: liveForm.priceInPOL,
+              maxClaimableSupply: BigInt(liveForm.quota),
+              maxClaimablePerWallet: liveForm.maxPerWallet
+                ? BigInt(liveForm.maxPerWallet)
+                : undefined,
+            },
+          ],
+        });
+
+        await sendTxAsync(claimTx);
+
+        console.log("✓ Claim condition configured on-chain for token:", tokenId);
+        toast.success("🎉 Event & Tiket Siap!", {
+          id: claimToastId,
+          description: `Tiket sudah langsung bisa dibeli oleh publik!`,
+        });
+      } catch (claimErr: any) {
+        console.error("Warning: setClaimConditions failed or rejected:", claimErr);
+        toast.warning("Claim Condition belum aktif", {
+          id: claimToastId,
+          description: "Transaksi claim condition dibatalkan/gagal. Event sudah tersimpan. Aktifkan claim condition kapan saja lewat tombol 🎫 di tabel.",
+        });
+      } finally {
+        setIsSettingClaimCondition(false);
+      }
     }
   };
 
@@ -355,7 +470,7 @@ export default function EventsPage() {
               <SheetDescription className="text-gray-400 text-base">
                 {isEditMode
                   ? "Update the event details below."
-                  : "Fill in the details and mint the NFT ticket metadata on-chain. Pricing & quota limits are configured separately via the Thirdweb Dashboard."}
+                  : "Isi detail event di bawah. Sistem akan otomatis melakukan lazy mint NFT tiket serta mengatur Claim Condition (harga & kuota) di smart contract."}
               </SheetDescription>
             </SheetHeader>
 
@@ -434,7 +549,7 @@ export default function EventsPage() {
                       />
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8247E5] font-bold">◈</span>
                     </div>
-                    <p className="text-xs text-gray-500">Stored for reference — set on Thirdweb Dashboard</p>
+                    <p className="text-xs text-purple-400/80">Otomatis diset sebagai harga tiket di smart contract</p>
                   </div>
 
                   <div className="space-y-2">
@@ -448,7 +563,7 @@ export default function EventsPage() {
                       className="h-12 glass border-purple-500/30 text-white placeholder:text-gray-500"
                       disabled={isLoading} required
                     />
-                    <p className="text-xs text-gray-500">Set matching supply on Thirdweb Dashboard</p>
+                    <p className="text-xs text-purple-400/80">Otomatis diset sebagai total kuota klaim di smart contract</p>
                   </div>
                 </div>
 
@@ -465,7 +580,7 @@ export default function EventsPage() {
                     className="h-12 glass border-purple-500/30 text-white placeholder:text-gray-500"
                     disabled={isLoading}
                   />
-                  <p className="text-xs text-gray-500">Stored for reference — configure on Thirdweb Dashboard</p>
+                  <p className="text-xs text-purple-400/80">Otomatis diset (kosongkan jika tanpa batas klaim per wallet)</p>
                 </div>
               </div>
 
@@ -632,11 +747,15 @@ export default function EventsPage() {
                 )}
 
                 {/* Progress */}
-                {(isUploadingToIPFS || isLoading) && (
+                {(isUploadingToIPFS || isLoading || isSettingClaimCondition) && (
                   <div className="glass border border-cyan-500/30 rounded-lg p-4 flex items-center gap-3">
                     <Loader2 className="w-5 h-5 text-cyan-400 animate-spin flex-shrink-0" />
                     <p className="text-cyan-400 text-sm font-semibold">
-                      {isUploadingToIPFS ? "Uploading banner to IPFS…" : "Minting & saving event…"}
+                      {isUploadingToIPFS
+                        ? "Mengunggah banner ke IPFS…"
+                        : isSettingClaimCondition
+                        ? "Mengatur Claim Condition di smart contract (konfirmasi di wallet)…"
+                        : "Melakukan minting & menyimpan event…"}
                     </p>
                   </div>
                 )}
@@ -802,6 +921,17 @@ export default function EventsPage() {
                         <TableCell>{getStatusBadge(event.status)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
+                            <Button variant="ghost" size="sm"
+                              onClick={() => handleSetClaimConditionForEvent(event)}
+                              disabled={syncingClaimEventId === event.id || !account || event.ticket_token_id === null}
+                              className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
+                              title="Set / Sync Claim Condition ke Smart Contract">
+                              {syncingClaimEventId === event.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Ticket className="w-4 h-4" />
+                              )}
+                            </Button>
                             <Button variant="ghost" size="sm"
                               onClick={() => router.push(`/admin/dashboard/events/${event.id}/attendees`)}
                               className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10"
