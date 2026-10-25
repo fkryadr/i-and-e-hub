@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminSession } from "@/lib/admin-auth";
+import { revalidatePath } from "next/cache";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -154,6 +158,14 @@ export async function PUT(
       data: updateData,
     });
 
+    try {
+      revalidatePath("/");
+      revalidatePath("/events");
+      revalidatePath("/admin/dashboard");
+      revalidatePath("/admin/dashboard/events");
+      revalidatePath(`/event/${id}`);
+    } catch {}
+
     return NextResponse.json({
       success: true,
       message: "Event updated successfully",
@@ -246,6 +258,14 @@ export async function DELETE(
     await prisma.tb_event.delete({
       where: { id },
     });
+
+    try {
+      revalidatePath("/");
+      revalidatePath("/events");
+      revalidatePath("/admin/dashboard");
+      revalidatePath("/admin/dashboard/events");
+      revalidatePath(`/event/${id}`);
+    } catch {}
 
     return NextResponse.json({
       success: true,

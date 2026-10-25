@@ -15,6 +15,9 @@ import { getContract } from "thirdweb";
 import { client, chain } from "@/lib/thirdweb";
 import { redirect } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // Dashboard is a Server Component, so we can fetch directly from Prisma
 export default async function AdminDashboardPage() {
   

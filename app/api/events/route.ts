@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminSession } from "@/lib/admin-auth";
+import { revalidatePath } from "next/cache";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET() {
   try {
@@ -37,7 +41,16 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json({ events: formattedEvents });
+    return NextResponse.json(
+      { events: formattedEvents },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      }
+    );
   } catch (error) {
     console.error("Events fetch error:", error);
     return NextResponse.json(
@@ -146,6 +159,16 @@ export async function POST(request: NextRequest) {
         } as any,
       });
       console.log("✓ Event created in database:", event.id);
+      
+      // Invalidate Next.js cache across frontend pages so new event is immediately visible in production
+      try {
+        revalidatePath("/");
+        revalidatePath("/events");
+        revalidatePath("/admin/dashboard");
+        revalidatePath("/admin/dashboard/events");
+      } catch (revErr) {
+        console.warn("revalidatePath warning:", revErr);
+      }
     } catch (dbError: any) {
       console.error("❌ Prisma error:", dbError.message);
       throw dbError;

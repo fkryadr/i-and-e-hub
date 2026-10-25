@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import EventsPageClient from "./EventsPageClient";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 interface Event {
   _id: string;
   title: string;
